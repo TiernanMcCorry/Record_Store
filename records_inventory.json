@@ -1,0 +1,32 @@
+[
+    {
+        "id": 1,
+        "artist": "Kendrick Lamar",
+        "album": "DAMN.",
+        "genre": "Hip-hop",
+        "year": 2017,
+        "price": 39.99,
+        "stock": "8",
+        "date_added": "2025-09-25 10:59:23"
+    },
+    {
+        "id": 2,
+        "artist": "Shea Bartram",
+        "album": "Nestle",
+        "genre": "Rap",
+        "year": 2025,
+        "price": 39.99,
+        "stock": "1",
+        "date_added": "2025-10-02 12:30:23"
+    },
+    {
+        "id": 3,
+        "artist": "GEORGE",
+        "album": "classmates",
+        "genre": "rock",
+        "year": 2024,
+        "price": 29.99,
+        "stock": 3,
+        "date_added": "2025-10-02 12:34:30"
+    }
+]
