@@ -1,0 +1,13 @@
+[
+    {
+        "id": 1,
+        "username": "Tiernan123",
+        "password": "123456",
+        "email": "tiernanmccorry15@gmail.com",
+        "full_name": "Tiernan McCorry",
+        "address": "4 hampton close",
+        "phone": "07385 335109",
+        "registration_date": "2026-01-27 00:00:29",
+        "is_active": true
+    }
+]

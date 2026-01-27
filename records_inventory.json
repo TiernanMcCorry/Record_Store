@@ -1,32 +1,32 @@
 [
     {
         "id": 1,
-        "artist": "Kendrick Lamar",
-        "album": "DAMN.",
-        "genre": "Hip-hop",
-        "year": 2017,
-        "price": 39.99,
-        "stock": "8",
-        "date_added": "2025-09-25 10:59:23"
+        "artist": "John Butler",
+        "album": "Opposite Day",
+        "genre": "Speedrun",
+        "year": 2021,
+        "price": 1.0,
+        "stock": 4,
+        "date_added": "2026-01-26 23:38:22"
     },
     {
         "id": 2,
-        "artist": "Shea Bartram",
-        "album": "Nestle",
-        "genre": "Rap",
-        "year": 2025,
-        "price": 39.99,
-        "stock": "1",
-        "date_added": "2025-10-02 12:30:23"
+        "artist": "John Butler",
+        "album": "Opposite Day 2",
+        "genre": "Speedrun",
+        "year": 2022,
+        "price": 1.0,
+        "stock": 3,
+        "date_added": "2026-01-26 23:38:41"
     },
     {
         "id": 3,
-        "artist": "GEORGE",
-        "album": "classmates",
-        "genre": "rock",
-        "year": 2024,
-        "price": 29.99,
-        "stock": 3,
-        "date_added": "2025-10-02 12:34:30"
+        "artist": "John Butler",
+        "album": "Opposite Day 3",
+        "genre": "Speedrun",
+        "year": 2023,
+        "price": 1.0,
+        "stock": 4,
+        "date_added": "2026-01-26 23:39:06"
     }
 ]
