@@ -1,0 +1,112 @@
+import tkinter as tk
+from config import COLORS, FONTS, SHADOWS, RADIUS
+
+class ModernButton(tk.Button):
+    def __init__(self, parent, **kwargs):
+        # Extract custom properties
+        text = kwargs.pop('text', '')
+        variant = kwargs.pop('variant', 'primary')  # primary, secondary, success, danger
+        size = kwargs.pop('size', 'md')  # sm, md, lg
+        
+        # Set defaults
+        defaults = {
+            'text': text,
+            'font': FONTS['button'],
+            'bg': COLORS[variant],
+            'fg': COLORS['white'],
+            'relief': 'flat',
+            'borderwidth': 0,
+            'cursor': 'hand2',
+            'activebackground': COLORS[f'{variant}_dark'] if f'{variant}_dark' in COLORS else COLORS[variant],
+            'activeforeground': COLORS['white'],
+        }
+        
+        # Size adjustments
+        if size == 'sm':
+            defaults.update({'padx': 15, 'pady': 8, 'font': FONTS['button_small']})
+        elif size == 'lg':
+            defaults.update({'padx': 30, 'pady': 14, 'font': FONTS['button_large']})
+        else:  # md
+            defaults.update({'padx': 20, 'pady': 12})
+        
+        # Update with user kwargs
+        defaults.update(kwargs)
+        
+        super().__init__(parent, **defaults)
+
+class Card(tk.Frame):
+    def __init__(self, parent, **kwargs):
+        # Extract custom properties
+        elevation = kwargs.pop('elevation', 'base')  # none, sm, base, md, lg
+        
+        # Set defaults
+        defaults = {
+            'bg': COLORS['card_bg'],
+            'padx': 24,
+            'pady': 24,
+            'highlightbackground': COLORS['border'],
+            'highlightthickness': 1,
+        }
+        
+        defaults.update(kwargs)
+        
+        super().__init__(parent, **defaults)
+
+class InputField(tk.Frame):
+    def __init__(self, parent, label="", **kwargs):
+        super().__init__(parent, bg=COLORS['bg'])
+        
+        # Label
+        if label:
+            self.label = tk.Label(self,
+                                text=label,
+                                font=FONTS['caption'],
+                                bg=COLORS['bg'],
+                                fg=COLORS['fg'])
+            self.label.pack(anchor='w', pady=(0, 5))
+        
+        # Entry
+        self.entry = tk.Entry(self,
+                            font=FONTS['body'],
+                            bg=COLORS['entry_bg'],
+                            fg=COLORS['fg'],
+                            relief='flat',
+                            insertbackground=COLORS['fg'],
+                            **kwargs)
+        self.entry.pack(fill='x', ipady=10)
+    
+    def get(self):
+        return self.entry.get()
+    
+    def set(self, value):
+        self.entry.delete(0, tk.END)
+        self.entry.insert(0, value)
+
+class StatsCard(tk.Frame):
+    def __init__(self, parent, title="", value="", icon="", color="primary", **kwargs):
+        super().__init__(parent, bg=COLORS['card_bg'], padx=20, pady=20, **kwargs)
+        
+        # Icon
+        if icon:
+            icon_label = tk.Label(self,
+                                text=icon,
+                                font=('Segoe UI Emoji', 24),
+                                bg=COLORS['card_bg'],
+                                fg=COLORS[color])
+            icon_label.pack(anchor='w', pady=(0, 10))
+        
+        # Value
+        value_label = tk.Label(self,
+                             text=str(value),
+                             font=FONTS['h3'],
+                             bg=COLORS['card_bg'],
+                             fg=COLORS['fg'])
+        value_label.pack(anchor='w', pady=(0, 5))
+        
+        # Title
+        title_label = tk.Label(self,
+                             text=title,
+                             font=FONTS['caption'],
+                             bg=COLORS['card_bg'],
+                             fg=COLORS['secondary'])
+        title_label.pack(anchor='w')

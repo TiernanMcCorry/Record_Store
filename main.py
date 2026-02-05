@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import font as tkfont, messagebox
 import os
 import sys
 
@@ -11,79 +10,67 @@ from record_store import RecordStoreApp
 
 class VinylFlowApp:
     def __init__(self):
+        # Create main window
         self.root = tk.Tk()
-        self.root.withdraw()  # Hide main window initially
+        self.root.title("VinylFlow - Record Store Management")
         
-        # Set application-wide font
-        default_font = tkfont.nametofont("TkDefaultFont")
-        default_font.configure(family="Segoe UI", size=10)
+        # Set window size and position
+        self.setup_window()
         
-        # Show authentication window
+        # Initialize current app
+        self.current_app = None
+
+        # Show auth window
         self.show_auth_window()
         
-        # Start the application
+        # Start main loop
         self.root.mainloop()
+    
+    def setup_window(self):
+        """Setup main window size and position"""
+        # Set minimum size
+        self.root.minsize(1200, 700)
+        
+        # Get screen dimensions
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        
+        # Calculate window size (90% of screen)
+        window_width = int(screen_width * 0.9)
+        window_height = int(screen_height * 0.9)
+        
+        # Calculate position to center window
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        
+        # Set window geometry
+        self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        
+        # Set window icon (if you have one)
+        try:
+            self.root.iconbitmap('vinylflow.ico')
+        except:
+            pass
+        
+        # Configure grid for responsive design
+        self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_columnconfigure(0, weight=1)
     
     def show_auth_window(self):
         """Show authentication window"""
-        auth_window = tk.Toplevel(self.root)
-        auth_window.title("VinylFlow - Login")
-        auth_window.geometry("600x500")
-        auth_window.resizable(False, False)
+        # Clear the main window
+        for widget in self.root.winfo_children():
+            widget.destroy()
         
-        # Center window
-        self.center_window(auth_window)
-        
-        # Create auth interface
-        self.auth = AuthWindow(auth_window, self.on_auth_success)
-        
-        # Handle close
-        def on_auth_close():
-            if messagebox.askokcancel("Quit", "Do you want to quit?"):
-                auth_window.destroy()
-                self.root.destroy()
-        
-        auth_window.protocol("WM_DELETE_WINDOW", on_auth_close)
+        self.current_app = AuthWindow(self.root, self.on_auth_success)
     
     def on_auth_success(self, is_owner, user):
-        """Callback for successful authentication"""
-        # Create a new window for the application
-        app_window = tk.Toplevel(self.root)
-        app_window.title(f"VinylFlow - Record Store {'Manager' if is_owner else 'Customer'}")
-        app_window.geometry("1200x800")
-        app_window.minsize(1000, 600)
-        
-        # Center the window
-        self.center_window(app_window)
-        
-        # Create the application
-        app = RecordStoreApp(app_window, is_owner=is_owner, user=user, logout_callback=self.on_logout)
-        
-        # Handle window close
-        def on_app_close():
-            if messagebox.askokcancel("Quit", "Do you want to quit?"):
-                app_window.destroy()
-        
-        app_window.protocol("WM_DELETE_WINDOW", on_app_close)
-    
-    def on_logout(self):
-        """Handle logout from app"""
-        # Destroy all app windows
+        """Handle successful authentication"""
+        # Clear the main window
         for widget in self.root.winfo_children():
-            if isinstance(widget, tk.Toplevel):
-                widget.destroy()
+            widget.destroy()
         
-        # Show auth window again
-        self.show_auth_window()
-    
-    def center_window(self, window):
-        """Center window on screen"""
-        window.update_idletasks()
-        width = window.winfo_width() or 600
-        height = window.winfo_height() or 500
-        x = (window.winfo_screenwidth() // 2) - (width // 2)
-        y = (window.winfo_screenheight() // 2) - (height // 2)
-        window.geometry(f'{width}x{height}+{x}+{y}')
+        self.current_app = RecordStoreApp(self.root, is_owner=is_owner, user=user, logout_callback=self.show_auth_window)
 
 if __name__ == "__main__":
     app = VinylFlowApp()
