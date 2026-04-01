@@ -1,3 +1,41 @@
+# config.py
+
+# Vinyl-themed colors (deep charcoal, gold, brown)
+VINYL_COLORS = {
+    'primary': '#c4a747',           # Rich gold
+    'primary_light': '#d4b86a',
+    'primary_dark': '#a8883a',
+    'secondary': '#8b5a2b',          # Brown
+    'success': '#2d6a4f',            # Dark green
+    'danger': '#bc4742',             # Terracotta
+    'warning': '#e9c46a',            # Light gold
+    'info': '#2a9d8f',               # Teal
+    'light': '#3c2a1f',              # Dark brown
+    'light_gray': '#5c4b3a',
+    'dark': '#f0e6d2',               # Cream
+    'dark_gray': '#d4c5b0',
+    'white': '#1e1a16',              # Charcoal background
+    'gray': '#6b5b4c',
+    'bg': '#1e1a16',                 # Dark charcoal
+    'fg': '#f0e6d2',                 # Cream
+    'entry_bg': '#2d241c',
+    'entry_border': '#5c4b3a',
+    'tree_bg': '#2d241c',
+    'tree_fg': '#f0e6d2',
+    'tree_heading_bg': '#3c2a1f',
+    'tree_heading_fg': '#c4a747',
+    'tree_selected_bg': '#c4a747',
+    'tree_selected_fg': '#1e1a16',
+    'card_bg': '#2d241c',
+    'card_shadow': '#00000030',
+    'border': '#5c4b3a',
+    'sidebar_bg': '#2d241c',
+    'sidebar_fg': '#d4c5b0',
+    'sidebar_active': '#c4a747',
+    'accent': '#e9c46a',
+    'gradient_start': '#c4a747',
+    'gradient_end': '#8b5a2b',
+}
 # Color schemes - Modern Dark Mode as default
 DARK_COLORS = {
     'primary': '#8b5cf6',           # Modern purple
@@ -74,7 +112,7 @@ LIGHT_COLORS = {
 # Default to dark mode for modern look
 COLORS = DARK_COLORS.copy()
 
-# Modern font system
+
 FONTS = {
     'h1': ('Inter', 32, 'bold'),
     'h2': ('Inter', 28, 'bold'),
@@ -92,7 +130,6 @@ FONTS = {
     'button_small': ('Inter', 13, 'bold'),
     'code': ('JetBrains Mono', 13),
     'mono': ('JetBrains Mono', 12),
-    # Add missing font keys that are referenced in the code
     'label': ('Inter', 10, 'bold'),
     'title': ('Inter', 24, 'bold'),
     'subtitle': ('Inter', 12),
@@ -124,11 +161,12 @@ RADIUS = {
     'full': '9999px',
 }
 
-# Add missing set_theme function
+
 def set_theme(theme):
-    """Set the theme to light or dark"""
     global COLORS
     if theme == 'dark':
         COLORS.update(DARK_COLORS)
-    else:
+    elif theme == 'light':
         COLORS.update(LIGHT_COLORS)
+    else:
+        COLORS.update(VINYL_COLORS)
