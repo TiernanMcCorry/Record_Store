@@ -61,6 +61,28 @@ class Database:
             )
         ''')
 
+        # Ensure older databases get new columns added if they are missing
+        cursor.execute("PRAGMA table_info(customers)")
+        existing_cols = [col[1] for col in cursor.fetchall()]
+        # Define columns we expect and their SQL definitions (safe defaults)
+        expected_customer_cols = {
+            'password_hash': 'TEXT',
+            'email': 'TEXT',
+            'full_name': 'TEXT',
+            'address': 'TEXT',
+            'phone': 'TEXT',
+            'registration_date': "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            'is_active': "BOOLEAN DEFAULT 1",
+            'role': "TEXT DEFAULT 'customer'"
+        }
+        for col_name, col_def in expected_customer_cols.items():
+            if col_name not in existing_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE customers ADD COLUMN {col_name} {col_def}")
+                except Exception:
+                    # If adding a column fails for any reason, continue; it's non-fatal for seeding
+                    pass
+
         # Artists table (extends customers)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS artists (

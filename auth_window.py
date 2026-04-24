@@ -758,5 +758,20 @@ class AuthWindow:
             self.show_error(self.owner_error, "Invalid owner credentials")
     
     def show_error(self, label_widget, message):
-        label_widget.config(text=message)
-        self.parent.after(5000, lambda: label_widget.config(text=""))
+        try:
+            # Only update if the widget still exists (defensive for async callbacks)
+            if hasattr(label_widget, 'winfo_exists') and label_widget.winfo_exists():
+                label_widget.config(text=message)
+
+                def _clear():
+                    try:
+                        if hasattr(label_widget, 'winfo_exists') and label_widget.winfo_exists():
+                            label_widget.config(text="")
+                    except tk.TclError:
+                        # Widget may have been destroyed; ignore
+                        pass
+
+                self.parent.after(5000, _clear)
+        except tk.TclError:
+            # Widget already destroyed or Tk not available; safe to ignore
+            pass

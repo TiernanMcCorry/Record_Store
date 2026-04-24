@@ -24,7 +24,12 @@ class RecordStoreApp:
         # Shopping cart
         self.cart = []
         self.cart_total = 0.0
-        
+        # UI helpers
+        self.tag_configured = False
+        # Sorting state for catalog/tree views
+        self.catalog_sort_by = 'Album'
+        self.catalog_sort_reverse = False
+
         # Theme
         self.dark_mode = False
         self.load_theme()
@@ -134,6 +139,62 @@ class RecordStoreApp:
             self.create_owner_interface(main_container)
         else:
             self.create_customer_interface(main_container)
+
+    def load_data(self):
+        """Populate UI with initial data from the database.
+
+        This method is defensive: each refresh call is wrapped so that missing
+        pieces of the UI or unexpected DB errors won't crash initialization.
+        """
+        # Records
+        try:
+            self.refresh_records()
+        except Exception:
+            pass
+
+        # Artists and bookings (owner views)
+        try:
+            if hasattr(self, 'refresh_artists_list'):
+                self.refresh_artists_list()
+        except Exception:
+            pass
+
+        try:
+            if hasattr(self, 'refresh_bookings_list'):
+                self.refresh_bookings_list()
+        except Exception:
+            pass
+
+        # Deleted records
+        try:
+            if hasattr(self, 'refresh_deleted_records'):
+                self.refresh_deleted_records()
+        except Exception:
+            pass
+
+        # Cart
+        try:
+            if hasattr(self, 'update_cart_display'):
+                self.update_cart_display()
+        except Exception:
+            pass
+
+        # Artist-specific slots/bookings
+        try:
+            if hasattr(self, 'refresh_available_slots'):
+                self.refresh_available_slots()
+        except Exception:
+            pass
+        try:
+            if hasattr(self, 'refresh_artist_bookings'):
+                self.refresh_artist_bookings()
+        except Exception:
+            pass
+        try:
+            if hasattr(self, 'refresh_events'):
+                self.refresh_events()
+        except Exception:
+            pass
     
     def create_header(self):
         self.header = tk.Frame(self.root, bg=COLORS['primary'], height=70)
@@ -208,6 +269,28 @@ class RecordStoreApp:
                              pady=5)
         logout_btn.pack(side='left', padx=5)
     
+    def logout(self):
+        """Logout the current user and return to the auth window.
+
+        This clears the root window and invokes the provided logout_callback
+        so the main application can show the authentication screen.
+        """
+        try:
+            # Clear all widgets from the root to avoid stale references
+            for widget in list(self.root.winfo_children()):
+                try:
+                    widget.destroy()
+                except Exception:
+                    pass
+
+            if callable(self.logout_callback):
+                # Call the callback to show the auth/login window
+                self.logout_callback()
+        except Exception as e:
+            # Fallback: print to stderr so the developer can see issues
+            import sys
+            print(f"Error during logout: {e}", file=sys.stderr)
+    
     # Owner interface (tabs)
     def create_owner_interface(self, parent):
         notebook = ttk.Notebook(parent)
@@ -274,7 +357,7 @@ class RecordStoreApp:
             ("Album:", "album_entry"),
             ("Genre:", "genre_entry"),
             ("Year:", "year_entry"),
-            ("Price ($):", "price_entry"),
+            ("Price (£):", "price_entry"),
             ("Stock:", "stock_entry"),
         ]
         
@@ -421,7 +504,8 @@ class RecordStoreApp:
         self.tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=20)
         
         for col in columns:
-            self.tree.heading(col, text=col)
+            # Make headings clickable to sort by column
+            self.tree.heading(col, text=col, command=lambda c=col: self.sort_by_column(c))
             if col == "ID":
                 self.tree.column(col, width=50, anchor="center")
             elif col in ["Album", "Artist"]:
@@ -479,6 +563,15 @@ class RecordStoreApp:
             self.tree.delete(item)
         
         records = self.db.get_all_records()
+        # Apply catalog sorting if set (defaults to Album alphabetical for customer view)
+        sort_col = getattr(self, 'catalog_sort_by', None)
+        sort_rev = getattr(self, 'catalog_sort_reverse', False)
+        if sort_col:
+            try:
+                records = sorted(records, key=lambda r: self._record_sort_key(r, sort_col), reverse=sort_rev)
+            except Exception:
+                # fallback: no sort
+                pass
         for idx, record in enumerate(records):
             item_id = self.tree.insert('', 'end', values=(
                 record.get('id', ''),
@@ -486,7 +579,7 @@ class RecordStoreApp:
                 record.get('artist', ''),
                 record.get('genre', ''),
                 record.get('year', ''),
-                f"${record.get('price', 0):.2f}",
+                f"£{record.get('price', 0):.2f}",
                 record.get('stock', 0)
             ))
             # Apply tag for alternating colors
@@ -496,6 +589,36 @@ class RecordStoreApp:
                 self.tag_configured = True
             tag = 'even' if idx % 2 == 0 else 'odd'
             self.tree.item(item_id, tags=(tag,))
+
+    def _record_sort_key(self, record, col_name):
+        """Return a sortable key for a record based on the column name."""
+        col_map = {
+            'ID': lambda r: int(r.get('id') or 0),
+            'Album': lambda r: (r.get('album') or '').lower(),
+            'Artist': lambda r: (r.get('artist') or '').lower(),
+            'Genre': lambda r: (r.get('genre') or '').lower(),
+            'Year': lambda r: int(r.get('year') or 0),
+            'Price': lambda r: float(r.get('price') or 0.0),
+            'Stock': lambda r: int(r.get('stock') or 0)
+        }
+        fn = col_map.get(col_name, lambda r: (r.get('album') or '').lower())
+        return fn(record)
+
+    def sort_by_column(self, col_name):
+        """Toggle sorting by a column and refresh the view."""
+        # Initialize default sort to Album ascending for guest/catalog
+        if not hasattr(self, 'catalog_sort_by') or self.catalog_sort_by != col_name:
+            self.catalog_sort_by = col_name
+            # default ascending except for Price/Year/Stock perhaps ascending too
+            self.catalog_sort_reverse = False
+        else:
+            # toggle
+            self.catalog_sort_reverse = not getattr(self, 'catalog_sort_reverse', False)
+        # Refresh the records shown
+        try:
+            self.refresh_records()
+        except Exception:
+            pass
     
     def search_records(self):
         if self.is_owner:
@@ -521,7 +644,7 @@ class RecordStoreApp:
                 record.get('artist', ''),
                 record.get('genre', ''),
                 record.get('year', ''),
-                f"${record.get('price', 0):.2f}",
+                f"£{record.get('price', 0):.2f}",
                 record.get('stock', 0)
             ))
             tag = 'even' if idx % 2 == 0 else 'odd'
@@ -538,7 +661,7 @@ class RecordStoreApp:
         if not self.is_owner:
             return
         entries = ['artist_entry', 'album_entry', 'genre_entry', 'year_entry', 'price_entry', 'stock_entry']
-        form_values = [values[2], values[1], values[3], values[4], str(values[5]).replace('$', ''), values[6]]
+        form_values = [values[2], values[1], values[3], values[4], str(values[5]).replace('£', ''), values[6]]
         for entry_name, value in zip(entries, form_values):
             if entry_name in self.form_entries:
                 entry = self.form_entries[entry_name]
@@ -718,11 +841,11 @@ class RecordStoreApp:
         metrics = [
             ("Total Records", stats.get('total_records', 0)),
             ("Total Stock", stats.get('total_stock', 0)),
-            ("Total Value", f"${stats.get('total_value', 0):,.2f}"),
-            ("Average Price", f"${stats.get('avg_price', 0):,.2f}"),
+            ("Total Value", f"£{stats.get('total_value', 0):,.2f}"),
+            ("Average Price", f"£{stats.get('avg_price', 0):,.2f}"),
             ("Total Sales", stats.get('total_sales_count', 0)),
-            ("Sales Revenue", f"${stats.get('total_sales_amount', 0):,.2f}"),
-            ("Avg Sale Value", f"${stats.get('avg_sale_value', 0):,.2f}")
+            ("Sales Revenue", f"£{stats.get('total_sales_amount', 0):,.2f}"),
+            ("Avg Sale Value", f"£{stats.get('avg_sale_value', 0):,.2f}")
         ]
 
         # Display metrics in a grid
@@ -1036,7 +1159,7 @@ class RecordStoreApp:
                 rec['album'],
                 rec['genre'],
                 rec['year'],
-                f"${rec['price']:.2f}",
+                f"£{rec['price']:.2f}",
                 rec['stock'],
                 rec['deleted_at']
             ))
@@ -1074,18 +1197,27 @@ class RecordStoreApp:
         cart_tab.grid_rowconfigure(0, weight=1)
         cart_tab.grid_columnconfigure(0, weight=1)
 
+        # Events tab (public facing list of upcoming artist bookings)
+        events_tab = ttk.Frame(notebook)
+        notebook.add(events_tab, text="📅 Events")
+        events_tab.grid_rowconfigure(0, weight=1)
+        events_tab.grid_columnconfigure(0, weight=1)
+
         # Build catalog section inside catalog_tab
         self.create_catalog_section(catalog_tab)
         # Build cart section inside cart_tab
         self.create_cart_section(cart_tab)
 
-    # If user is an artist, add artist portal tab
+        # Build events section inside events_tab
+        self.create_events_tab(events_tab)
+
+        # If user is an artist, add artist portal tab
         if self.user_role == 'artist':
             artist_tab = ttk.Frame(notebook)
-        notebook.add(artist_tab, text="🎤 Artist Portal")
-        artist_tab.grid_rowconfigure(0, weight=1)
-        artist_tab.grid_columnconfigure(0, weight=1)
-        self.create_artist_portal_tab(artist_tab)
+            notebook.add(artist_tab, text="🎤 Artist Portal")
+            artist_tab.grid_rowconfigure(0, weight=1)
+            artist_tab.grid_columnconfigure(0, weight=1)
+            self.create_artist_portal_tab(artist_tab)
     
     def create_catalog_section(self, parent):
         parent.grid_rowconfigure(0, weight=0)
@@ -1155,7 +1287,8 @@ class RecordStoreApp:
         columns = ("ID", "Album", "Artist", "Genre", "Year", "Price", "Stock")
         self.tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=20)
         for col in columns:
-            self.tree.heading(col, text=col)
+            # clickable headings for sorting
+            self.tree.heading(col, text=col, command=lambda c=col: self.sort_by_column(c))
             if col == "ID":
                 self.tree.column(col, width=0, stretch=False)
             elif col in ["Album", "Artist"]:
@@ -1166,6 +1299,11 @@ class RecordStoreApp:
         v_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=v_scrollbar.set)
         self.tree.grid(row=0, column=0, sticky="nsew")
+        # Allow double-click to add an item to cart for convenience
+        try:
+            self.tree.bind('<Double-1>', lambda e: self.add_to_cart())
+        except Exception:
+            pass
         v_scrollbar.grid(row=0, column=1, sticky="ns")
         
         button_frame = tk.Frame(parent, bg=COLORS['bg'])
@@ -1182,6 +1320,15 @@ class RecordStoreApp:
                                cursor='hand2',
                                pady=10)
         add_cart_btn.grid(row=0, column=0, sticky="ew")
+        # Populate catalog immediately
+        try:
+            # Default sort for catalog: Album alphabetical
+            if not hasattr(self, 'catalog_sort_by'):
+                self.catalog_sort_by = 'Album'
+                self.catalog_sort_reverse = False
+            self.refresh_records()
+        except Exception:
+            pass
     
     def create_cart_section(self, parent):
         parent.grid_rowconfigure(0, weight=1)
@@ -1217,12 +1364,12 @@ class RecordStoreApp:
                 font=FONTS['label'],
                 bg=COLORS['bg'],
                 fg=COLORS['fg']).grid(row=0, column=0, sticky="w")
-        
+
         self.total_label = tk.Label(total_frame,
-                                   text="$0.00",
-                                   font=FONTS['heading'],
-                                   bg=COLORS['bg'],
-                                   fg=COLORS['primary'])
+                                    text="£0.00",
+                                    font=FONTS['heading'],
+                                    bg=COLORS['bg'],
+                                    fg=COLORS['primary'])
         self.total_label.grid(row=0, column=1, sticky="e")
         
         btn_frame = tk.Frame(parent, bg=COLORS['bg'])
@@ -1321,60 +1468,143 @@ class RecordStoreApp:
         # Load initial bookings
         self.refresh_artist_bookings()
 
-def refresh_available_slots(self):
-    """Populate the slot combobox with available performance slots."""
-    slots = self.db.get_available_slots()
-    if slots:
-        self.slot_combo['values'] = [slot['formatted'] for slot in slots]
-        self.slot_combo.set("")  # clear selection
-    else:
-        self.slot_combo['values'] = []
-        self.slot_combo.set("No available slots")
+    # Public Events tab for customers/guests
+    def create_events_tab(self, parent):
+        parent.grid_rowconfigure(0, weight=0)
+        parent.grid_rowconfigure(1, weight=1)
+        parent.grid_columnconfigure(0, weight=1)
 
-def request_booking(self):
-    """Create a new booking request for the artist."""
-    selected = self.slot_var.get()
-    if not selected:
-        messagebox.showwarning("No Slot", "Please select a date and time.")
-        return
+        header = tk.Frame(parent, bg=COLORS['bg'])
+        header.grid(row=0, column=0, sticky='ew', pady=8, padx=8)
+        header.grid_columnconfigure(0, weight=1)
 
-    # Find the corresponding datetime object
-    slots = self.db.get_available_slots()
-    selected_slot = None
-    for slot in slots:
-        if slot['formatted'] == selected:
-            selected_slot = slot['datetime']
-            break
-    if not selected_slot:
-        messagebox.showerror("Error", "Selected slot no longer available. Please refresh.")
-        return
+        tk.Label(header, text="Upcoming Events", font=FONTS['h4'], bg=COLORS['bg'], fg=COLORS['fg']).grid(row=0, column=0, sticky='w')
 
-    notes = self.booking_notes.get("1.0", tk.END).strip()
-    try:
-        booking_id = self.db.create_booking(self.artist_id, selected_slot, 60, notes, self.user_id)
-        messagebox.showinfo("Booking Requested", f"Your booking request (ID: {booking_id}) has been submitted. It will be reviewed by the store.")
-        self.refresh_artist_bookings()
-        self.refresh_available_slots()
-        self.booking_notes.delete("1.0", tk.END)
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to request booking: {str(e)}")
+        btn_frame = tk.Frame(header, bg=COLORS['bg'])
+        btn_frame.grid(row=0, column=1, sticky='e')
+        refresh_btn = tk.Button(btn_frame, text="Refresh", font=FONTS['button_small'], bg=COLORS['secondary'], fg=COLORS['white'], relief='flat', command=self.refresh_events, cursor='hand2')
+        refresh_btn.pack(side='right')
 
-def refresh_artist_bookings(self):
-    """Refresh the list of bookings for this artist."""
-    if not hasattr(self, 'artist_id'):
-        return
-    for item in self.artist_booking_tree.get_children():
-        self.artist_booking_tree.delete(item)
+        # Treeview
+        tree_frame = tk.Frame(parent, bg=COLORS['bg'])
+        tree_frame.grid(row=1, column=0, sticky='nsew', padx=8, pady=8)
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
 
-    bookings = self.db.get_artist_bookings(self.artist_id)
-    for booking in bookings:
-        self.artist_booking_tree.insert('', 'end', values=(
-            booking['id'],
-            booking['performance_date'],
-            f"{booking['duration_minutes']} min",
-            booking['status'],
-            booking.get('notes', '')
-        ))
+        cols = ("ID", "Date", "Artist", "Stage Name", "Duration", "Status", "Notes")
+        self.events_tree = ttk.Treeview(tree_frame, columns=cols, show='headings', height=12)
+        for c in cols:
+            self.events_tree.heading(c, text=c)
+            if c == 'Notes':
+                self.events_tree.column(c, width=220)
+            elif c in ('Artist', 'Stage Name'):
+                self.events_tree.column(c, width=150)
+            else:
+                self.events_tree.column(c, width=100)
+
+        v = ttk.Scrollbar(tree_frame, orient='vertical', command=self.events_tree.yview)
+        self.events_tree.configure(yscrollcommand=v.set)
+        self.events_tree.grid(row=0, column=0, sticky='nsew')
+        v.grid(row=0, column=1, sticky='ns')
+
+        # initial populate
+        try:
+            self.refresh_events()
+        except Exception:
+            pass
+
+    def refresh_events(self):
+        """Populate the events tree with upcoming bookings (next 90 days)."""
+        try:
+            for item in getattr(self, 'events_tree', {}).get_children() if hasattr(self, 'events_tree') else []:
+                try:
+                    self.events_tree.delete(item)
+                except Exception:
+                    pass
+
+            # Get bookings from DB
+            bookings = self.db.get_all_bookings()
+            # Filter upcoming only
+            upcoming = []
+            now = datetime.now()
+            for b in bookings:
+                try:
+                    pd = datetime.fromisoformat(b['performance_date']) if isinstance(b['performance_date'], str) else b['performance_date']
+                except Exception:
+                    continue
+                if pd >= now:
+                    upcoming.append((pd, b))
+
+            upcoming.sort(key=lambda x: x[0])
+
+            for pd, b in upcoming:
+                notes = b.get('notes') or ''
+                artist_name = b.get('username') or ''
+                stage = b.get('stage_name') or ''
+                duration = f"{b.get('duration_minutes', 60)} min"
+                status = b.get('status', '')
+                self.events_tree.insert('', 'end', values=(b.get('id'), pd.strftime('%Y-%m-%d %I:%M %p'), artist_name, stage, duration, status, notes))
+        except Exception as e:
+            # don't crash the UI
+            try:
+                print(f"Error refreshing events: {e}")
+            except Exception:
+                pass
+
+    def refresh_available_slots(self):
+        """Populate the slot combobox with available performance slots."""
+        slots = self.db.get_available_slots()
+        if slots:
+            self.slot_combo['values'] = [slot['formatted'] for slot in slots]
+            self.slot_combo.set("")  # clear selection
+        else:
+            self.slot_combo['values'] = []
+            self.slot_combo.set("No available slots")
+
+    def request_booking(self):
+        """Create a new booking request for the artist."""
+        selected = self.slot_var.get()
+        if not selected:
+            messagebox.showwarning("No Slot", "Please select a date and time.")
+            return
+
+        # Find the corresponding datetime object
+        slots = self.db.get_available_slots()
+        selected_slot = None
+        for slot in slots:
+            if slot['formatted'] == selected:
+                selected_slot = slot['datetime']
+                break
+        if not selected_slot:
+            messagebox.showerror("Error", "Selected slot no longer available. Please refresh.")
+            return
+
+        notes = self.booking_notes.get("1.0", tk.END).strip()
+        try:
+            booking_id = self.db.create_booking(self.artist_id, selected_slot, 60, notes, self.user_id)
+            messagebox.showinfo("Booking Requested", f"Your booking request (ID: {booking_id}) has been submitted. It will be reviewed by the store.")
+            self.refresh_artist_bookings()
+            self.refresh_available_slots()
+            self.booking_notes.delete("1.0", tk.END)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to request booking: {str(e)}")
+
+    def refresh_artist_bookings(self):
+        """Refresh the list of bookings for this artist."""
+        if not hasattr(self, 'artist_id'):
+            return
+        for item in self.artist_booking_tree.get_children():
+            self.artist_booking_tree.delete(item)
+
+        bookings = self.db.get_artist_bookings(self.artist_id)
+        for booking in bookings:
+            self.artist_booking_tree.insert('', 'end', values=(
+                booking['id'],
+                booking['performance_date'],
+                f"{booking['duration_minutes']} min",
+                booking['status'],
+                booking.get('notes', '')
+            ))
     
     def add_to_cart(self):
         selection = self.tree.selection()
@@ -1429,8 +1659,8 @@ def refresh_artist_bookings(self):
             self.cart_tree.insert('', 'end', values=(
                 item['item'],
                 item['quantity'],
-                f"${item['price']:.2f}",
-                f"${item['total']:.2f}"
+                f"£{item['price']:.2f}",
+                f"£{item['total']:.2f}"
             ))
             self.cart_total += item['total']
         
@@ -1463,7 +1693,7 @@ def refresh_artist_bookings(self):
                 shipping_address=shipping_address
             )
             messagebox.showinfo("Order Placed",
-                            f"Thank you for your order!\n\nOrder ID: {sale_id}\nTotal: ${self.cart_total:.2f}\n\nYour records will be shipped soon.")
+                            f"Thank you for your order!\n\nOrder ID: {sale_id}\nTotal: £{self.cart_total:.2f}\n\nYour records will be shipped soon.")
             self.cart = []
             self.update_cart_display()
             self.refresh_records()
